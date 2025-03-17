@@ -1,0 +1,5 @@
+Flask==2.1.1
+geopandas==0.11.1
+shapely==1.8.0
+pyproj==3.2.0
+flask-cors==3.1.1
