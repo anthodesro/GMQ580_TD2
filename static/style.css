@@ -1,73 +1,234 @@
-/* Reset des marges et des paddings */
+/* Réinitialisation des marges et des paddings */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-body {
-    font-family: Arial, sans-serif;
-    line-height: 1.6;
+html, body {
+    height: 100%;
+    font-family: 'Arial', sans-serif;
     background-color: #f4f4f4;
-}
-
-header {
-    background-color: #333;
-    color: white;
-    padding: 10px 0;
-}
-
-nav ul {
-    list-style-type: none;
+    overflow: hidden;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
-nav ul li {
-    margin: 0 15px;
+body {
+    line-height: 1.6;
 }
 
-nav ul li a {
-    color: white;
-    text-decoration: none;
-    font-size: 16px;
-}
-
-nav ul li a:hover {
-    text-decoration: underline;
-}
-
+/* Main content */
 main {
-    padding: 20px;
-    max-width: 1200px;
+    width: calc(100% - 40px);
     margin: 20px auto;
+    padding: 20px;
     background-color: white;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 15px;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.1);
+    height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
 }
 
+/* Titre */
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+/* Carte */
+#map {
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+}
+
+/* Footer */
 footer {
     text-align: center;
     background-color: #333;
     color: white;
-    padding: 10px 0;
-    position: fixed;
+    padding: 15px 0;
+    position: relative;
     width: 100%;
-    bottom: 0;
+    font-size: 14px;
+    margin-top: auto;
 }
 
-/* Style pour les titres */
-h1 {
-    font-size: 2rem;
-    margin-bottom: 20px;
+/* Formulaire de recherche */
+.search-form {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    margin-left: 8px;
+}
+
+.search-form label {
+    color: black;
+    margin-right: 10px;
+    font-size: 1rem;
+}
+
+.search-form .search-input-container {
+    position: relative;
+    border: 1px solid #dcdcdc;
+    border-radius: 8px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.search-form input {
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    width: 100px;
+    font-size: 1rem;
+    outline: none;
+    background-color: transparent;
+}
+
+/* Style du bouton de recherche */
+.search-form button {
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.search-form button:hover,
+.search-form button:focus {
+    background-color: #0056b3;
+    outline: none;
 }
 
 /* Responsivité */
 @media (max-width: 768px) {
-    nav ul {
+    .container {
         flex-direction: column;
+        align-items: center;
     }
 
-    nav ul li {
-        margin-bottom: 10px;
+    .search-container, .table-container {
+        min-width: 100%;
+        margin-bottom: 20px;
     }
+}
+
+/* Conteneurs pour la recherche et le tableau */
+.container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Recherche (à gauche) */
+.search-container,
+.table-container {
+    flex: 1;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 280px;
+}
+
+/* Tableau */
+.table-container h3 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+table {
+    width: 100%;        /* Table prend toute la largeur */
+    border-collapse: collapse; /* Pour une présentation plus propre */
+}
+
+thead, th {
+    background-color: #f1f1f1; /* Couleur de fond de l'en-tête */
+    position: sticky; /* Rendre l'en-tête collant */
+    top: 0;            /* Il sera fixé en haut lors du défilement */
+    z-index: 1;        /* Assurez-vous que l'en-tête reste au-dessus du corps du tableau */
+}
+
+th, td {
+    padding: 10px;
+}
+
+th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+    color: #333;
+    text-align: left;
+}
+
+td {
+    font-size: 1rem;
+    color: #666;
+}
+
+/* Survol des lignes du tableau */
+tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Table spécifique à la recherche par rayon */
+#searchRadius + table {
+    width: 100%;
+    margin-top: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#searchRadius + table th {
+    background-color: #007BFF;
+    color: white;
+    padding: 12px;
+    text-align: left;
+}
+
+#searchRadius + table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#searchRadius + table tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Conteneur du tableau avec défilement */
+#scroll {
+    overflow-y: auto;  /* Active le défilement vertical si nécessaire */
+    height: 150px; /* Hauteur fixe du conteneur */
+    margin-top: 10px;  /* Espacement si nécessaire */
+    border: 1px solid #ddd; /* Ajouter une bordure si besoin */
+    border-radius: 8px; /* Arrondir les bords si nécessaire */
+}
+
+/* Barre de défilement personnalisée */
+#scroll::-webkit-scrollbar {
+    width: 10px;
+}
+
+#scroll::-webkit-scrollbar-thumb {
+    background-color: #007BFF;
+    border-radius: 10px;
+}
+
+#scroll::-webkit-scrollbar-track {
+    background-color: #f1f1f1;
 }

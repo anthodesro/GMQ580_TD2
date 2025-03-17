@@ -1,73 +1,163 @@
-import geopandas as gpd
-from flask import Flask, jsonify, request
-from shapely.geometry import Point
-from shapely.ops import transform
+from flask import Flask, jsonify, request, render_template
+from shapely.geometry import shape, Point
 import pyproj
+import json
 
-# Initialisation de l'application Flask
 app = Flask(__name__)
 
-# Charger les données géospatiales depuis le fichier GeoJSON
-gdf_parks = gpd.read_file('data/AireAmenagee.geojson')
+try:
+    with open('data/AireAmenagee.geojson', 'r', encoding='utf-8') as f:
+        geojson_data = json.load(f)
+    print("✅ Données chargées avec succès.")
 
-# Définir le système de coordonnées de référence (CRS) à utiliser
-gdf_parks = gdf_parks.to_crs(epsg=4326)  # CRS WGS84 pour la latitude et longitude
+    parks = []
+    crs_4326 = pyproj.CRS.from_epsg(4326)
+    crs_3857 = pyproj.CRS.from_epsg(3857)
+    transformer_4326_to_3857 = pyproj.Transformer.from_crs(crs_4326, crs_3857, always_xy=True)
+    transformer_3857_to_4326 = pyproj.Transformer.from_crs(crs_3857, crs_4326, always_xy=True)
 
-# Endpoint pour récupérer la liste de tous les parcs
+    for feature in geojson_data['features']:
+        try:
+            geometry = shape(feature['geometry'])
+
+            if geometry.geom_type == 'Point':
+                geometry_3857 = Point(transformer_4326_to_3857.transform(geometry.x, geometry.y))
+            elif geometry.geom_type == 'Polygon':
+                coords_3857 = [
+                    transformer_4326_to_3857.transform(x, y) for x, y in geometry.exterior.coords
+                ]
+                geometry_3857 = shape({'type': 'Polygon', 'coordinates': [coords_3857]})
+
+            else:
+                geometry_3857 = geometry
+
+            superficie = round(geometry_3857.area / 1e6, 2) if geometry_3857.geom_type == 'Polygon' else 0
+
+            parks.append({
+                'id': feature['id'],
+                'NOM': feature['properties']['NOM'],
+                'geometry_3857': geometry_3857,
+                'superficie': superficie
+            })
+        except Exception as e:
+            print(f"❌ Erreur lors du traitement de la feature {feature['id']}: {e}")
+
+except Exception as e:
+    print(f"❌ Erreur lors du chargement ou du traitement des données : {e}")
+    parks = []
+
+def validate_coords(lat, lon, distance):
+    """Valide les coordonnées et la distance."""
+    try:
+        lat, lon, distance = float(lat), float(lon), float(distance)
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180 and distance > 0):
+            raise ValueError("Valeurs de coordonnées invalides.")
+        return lat, lon, distance
+    except (TypeError, ValueError):
+        return None
+
+@app.route('/')
+def index():
+    return render_template('base.html', title="Accueil")
+
 @app.route('/parks', methods=['GET'])
 def get_parks():
-    parks_list = gdf_parks[['nom', 'superficie', 'geometry']].to_dict(orient='records')
+    if not geojson_data:
+        return jsonify({'error': 'Données non disponibles'}), 500
+
+    parks_list = []
+    for park in parks:
+        # Conversion de la géométrie en EPSG:4326
+        park_geometry_4326 = park['geometry_3857']
+        if park_geometry_4326.geom_type == 'Polygon':
+            coords_4326 = [
+                transformer_3857_to_4326.transform(x, y) for x, y in park_geometry_4326.exterior.coords
+            ]
+            park_geometry_4326 = {'type': 'Polygon', 'coordinates': [coords_4326]}
+        elif park_geometry_4326.geom_type == 'Point':
+            x, y = transformer_3857_to_4326.transform(park_geometry_4326.x, park_geometry_4326.y)
+            park_geometry_4326 = {'type': 'Point', 'coordinates': [x, y]}
+
+        parks_list.append({
+            'id': park['id'],
+            'NOM': park['NOM'],
+            'superficie': park['superficie'],
+            'geometry': park_geometry_4326 if isinstance(park_geometry_4326, dict) else park_geometry_4326.__geo_interface__
+        })
+
     return jsonify(parks_list)
 
-# Endpoint pour récupérer les détails d'un parc spécifique en fonction de son id
 @app.route('/park/<int:id>', methods=['GET'])
 def get_park(id):
-    park = gdf_parks.iloc[id]
-    park_details = {
-        'nom': park['nom'],
-        'superficie': park['superficie'],
-        'geometry': park['geometry'].__geo_interface__
-    }
-    return jsonify(park_details)
+    """Retourne les détails d'un parc spécifique en fonction de son id."""
+    if not geojson_data:
+        return jsonify({'error': 'Données non disponibles'}), 500
 
-# Endpoint pour récupérer les parcs dans un rayon donné autour d'une position
+    park = next((p for p in parks if p['id'] == id), None)
+    if not park:
+        return jsonify({'error': 'Parc non trouvé'}), 404
+
+    return jsonify({
+        'id': park['id'],
+        'NOM': park['NOM'],
+        'superficie': park['superficie'],
+        'geometry': park['geometry_3857'] if isinstance(park['geometry_3857'], dict) else park['geometry_3857'].__geo_interface__
+    })
+
 @app.route('/parks/near', methods=['GET'])
 def get_parks_near():
-    lat = float(request.args.get('lat'))
-    lon = float(request.args.get('lon'))
-    distance = float(request.args.get('distance'))  # en mètres
+    """Retourne les parcs à proximité d'un point donné."""
+    lat, lon, distance = request.args.get('lat'), request.args.get('lon'), request.args.get('distance')
 
-    # Créer un point à partir des coordonnées de l'utilisateur
-    user_point = Point(lon, lat)
+    coords = validate_coords(lat, lon, distance)
+    if not coords:
+        return jsonify({'error': 'Coordonnées invalides'}), 400
 
-    # Créer un buffer autour du point utilisateur pour définir la zone de recherche
-    buffer = user_point.buffer(distance)
+    lat, lon, distance = coords
 
-    # Filtrer les parcs à l'intérieur de cette zone
-    parks_in_radius = gdf_parks[gdf_parks.intersects(buffer)]
+    # Transformer le point utilisateur en Web Mercator
+    transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+    user_point = Point(transformer.transform(lon, lat))
 
-    parks_list = parks_in_radius[['nom', 'superficie', 'geometry']].to_dict(orient='records')
+    # Créer un polygone circulaire (buffer) autour du point utilisateur
+    user_buffer = user_point.buffer(distance)
+
+    if not geojson_data:
+        return jsonify({'error': 'Données non disponibles'}), 500
+
+    parks_in_radius = []
+    for park in parks:
+        # Vérifier si le parc intersecte ou est contenu dans le buffer
+        if park['geometry_3857'].intersects(user_buffer) or park['geometry_3857'].within(user_buffer):
+            parks_in_radius.append(park)
+
+    parks_list = [{'id': park['id'], 'NOM': park['NOM'], 'superficie': park['superficie'], 'geometry': park['geometry_3857'] if isinstance(park['geometry_3857'], dict) else park['geometry_3857'].__geo_interface__} for park in parks_in_radius]
     return jsonify(parks_list)
 
-# Endpoint pour récupérer la superficie des parcs dans un rayon donné autour d'une position
 @app.route('/parks/stats', methods=['GET'])
 def get_parks_stats():
-    lat = float(request.args.get('lat'))
-    lon = float(request.args.get('lon'))
-    distance = float(request.args.get('distance'))  # en mètres
+    """Retourne la superficie totale des parcs dans un rayon donné."""
+    lat, lon, distance = request.args.get('lat'), request.args.get('lon'), request.args.get('distance')
 
-    # Créer un point à partir des coordonnées de l'utilisateur
-    user_point = Point(lon, lat)
+    coords = validate_coords(lat, lon, distance)
+    if not coords:
+        return jsonify({'error': 'Coordonnées invalides'}), 400
 
-    # Créer un buffer autour du point utilisateur pour définir la zone de recherche
-    buffer = user_point.buffer(distance)
+    lat, lon, distance = coords
 
-    # Filtrer les parcs à l'intérieur de cette zone
-    parks_in_radius = gdf_parks[gdf_parks.intersects(buffer)]
+    # Transformer le point utilisateur en Web Mercator
+    transformer = pyproj.Transformer.from_crs(crs_4326, crs_3857, always_xy=True)
+    user_point = Point(transformer.transform(lon, lat))
+    user_buffer = user_point.buffer(distance)
 
-    # Calculer la superficie totale des parcs dans cette zone
-    total_area = parks_in_radius['superficie'].sum()
-    return jsonify({'superficie_totale': total_area})
+    if not geojson_data:
+        return jsonify({'error': 'Données non disponibles'}), 500
+
+    parks_in_radius = [park for park in parks if park['geometry_3857'].intersects(user_buffer)]
+
+    total_area = sum(park['superficie'] for park in parks_in_radius)
+
+    return jsonify({'superficie_totale': round(total_area, 2)})
 
 if __name__ == '__main__':
     app.run(debug=True)
