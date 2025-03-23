@@ -27,8 +27,8 @@ Ce projet permet de visualiser et d'interagir avec les données géospatiales de
 1.  **Cloner le dépôt  :**
 
     ```bash
-    git clone [URL_DU_DÉPÔT]
-    cd [NOM_DU_RÉPERTOIRE_DU_PROJET]
+    git clone https://github.com/anthodesro/GMQ580_TD2.git
+    cd GMQ580_TD2
     ```
 
 2.  **Construire l'image Docker ️ :**
@@ -42,8 +42,6 @@ Ce projet permet de visualiser et d'interagir avec les données géospatiales de
     ```bash
     docker run -p 5000:5000 geoinnovations-app
     ```
-
-    L'application sera accessible à l'adresse `http://localhost:5000` .
 
 ## Utilisation de l'API
 
