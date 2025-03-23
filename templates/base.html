@@ -45,7 +45,6 @@
                     </div>
                     <button type="submit">Rechercher par rayon</button>
                 </form>
-                <!-- Conteneur de défilement pour le tableau -->
                 <div id="scroll">
                     <table>
                         <thead>
@@ -74,136 +73,118 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var map = L.map('map').setView([45.4042, -71.8888], 13);
-    
+
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
-    
-            let searchCircle = null;
+
             let selectedParksLayer = L.layerGroup().addTo(map);
-            let allParksLayer = L.layerGroup().addTo(map);
             let parkByIdLayer = L.layerGroup().addTo(map);
-            let allParks = [];
-    
-            // Fonction pour ajouter un parc à la carte
-            function addPark(park, color = 'blue', layer = allParksLayer) {
+            let allParksLayer = L.layerGroup().addTo(map);
+
+            function getStyle(park) {
+                return {
+                    fillColor: park.type === 'rechercheParId' ? 'purple' : 
+                            park.type === 'rechercheParRayon' ? 'green' : 'blue',
+                    color: park.type === 'rechercheParId' ? 'purple' : 
+                        park.type === 'rechercheParRayon' ? 'green' : 'blue',
+                    weight: park.type === 'rechercheParId' ? 3 : 2,
+                    fillOpacity: 0.5
+                };
+            }
+
+            function addPark(park, layer) {
                 if (!park.geometry) {
-                    console.error("Park has no geometry:", park);
+                    console.error("Parc sans géométrie :", park);
                     return;
                 }
-    
+
                 let feature;
+                let style = getStyle(park);
+
                 if (park.geometry.type === 'Polygon') {
-                    if (!Array.isArray(park.geometry.coordinates) || park.geometry.coordinates.length === 0 || !Array.isArray(park.geometry.coordinates[0])) {
-                        console.error("Invalid polygon coordinates:", park.geometry.coordinates);
-                        return;
-                    }
                     let latlngs = park.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-                    feature = L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.5, weight: 2, opacity: 0.9 });
+                    feature = L.polygon(latlngs, style).addTo(layer);
+                    feature.bringToFront();
                 } else if (park.geometry.type === 'Point') {
                     feature = L.marker([park.geometry.coordinates[1], park.geometry.coordinates[0]]);
                 }
-    
+
                 if (feature) {
                     feature.bindPopup(`<b>${park.NOM}</b><br>Superficie: ${park.superficie || 'Inconnue'} km²`);
-                    layer.addLayer(feature);
-                    feature.redraw();
-                    map.invalidateSize();
-    
-                    if (color === 'green') updateTable(park);
-                    if (color === 'purple') updateParkByIdTable(park);
+                    feature.parkId = park.id;
                 }
             }
-    
-            // Chargement des parcs
+
             fetch('/parks')
                 .then(response => response.json())
                 .then(parks => {
-                    parks.forEach(park => addPark(park));
+                    parks.forEach(park => {
+                        if (!park.id) park.id = generateUniqueId();
+                        addPark(park, allParksLayer);
+                    });
                 })
                 .catch(error => console.error('Erreur lors du chargement des parcs:', error));
-    
-            // Gestion du clic sur la carte pour définir le rayon de recherche
-            map.on('click', function(event) {
+
+            function generateUniqueId() {
+                return Math.random().toString(36).substr(2, 9);
+            }
+
+            let searchCircle = null;
+            map.on('click', function (event) {
                 if (searchCircle) searchCircle.remove();
                 searchCircle = L.circle(event.latlng, {
                     radius: parseInt(document.getElementById('searchRadius').value),
                     color: 'red',
                     fillColor: 'red',
-                    fillOpacity: 0.2
+                    fillOpacity: 0
                 }).addTo(map);
             });
-    
-            // Formulaire de recherche par rayon
-            const searchRadiusForm = document.getElementById('searchRadiusForm');
 
-            if (searchRadiusForm) {
-                searchRadiusForm.addEventListener('submit', function(event) {
-                    event.preventDefault();
-
-                    // Vérifie si le cercle de recherche existe
-                    if (!searchCircle) {
-                        alert("Veuillez sélectionner un emplacement sur la carte.");
-                        return;
+            function removeParkById(parkId, layer) {
+                layer.eachLayer(function (feature) {
+                    if (feature.parkId === parkId) {
+                        map.removeLayer(feature);
                     }
+                });
+            }
 
-                    selectedParksLayer.clearLayers();
-                    clearTable();
+            function performSearch() {
+                document.getElementById('searchIdForm').addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    const parkId = document.getElementById('parkId').value;
 
-                    // Récupère la valeur du rayon et les coordonnées du cercle de recherche
-                    let radius = parseInt(document.getElementById('searchRadius').value);
-                    let { lat, lng } = searchCircle.getLatLng();
-
-                    // Requête fetch pour obtenir les parcs à proximité
-                    fetch(`/parks/near?lat=${lat}&lon=${lng}&distance=${radius}`)
+                    fetch(`/park/${parkId}`)
                         .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Erreur lors de la récupération des données');
-                            }
+                            if (!response.ok) throw new Error("Parc non trouvé");
                             return response.json();
                         })
-                        .then(parks => {
-                            if (parks.length === 0) {
-                                alert("Aucun parc trouvé dans ce rayon.");
-                                return;
-                            }
-
-                            // Affichage de tous les parcs récupérés
-                            allParks = parks;
-                            parks.forEach(park => addPark(park, 'green', selectedParksLayer));
+                        .then(park => {
+                            console.log("Parc trouvé:", park);
+                            park.type = 'rechercheParId';
+                            console.log(`Suppression du parc ${parkId} avant ajout.`);
+                            removeParkById(parkId, parkByIdLayer);
+                            addPark(park, parkByIdLayer);
                         })
                         .catch(error => {
-                            console.error('Erreur lors de la recherche des parcs:', error);
+                            alert(error);
+                            console.error('Erreur lors de la recherche du parc par ID:', error);
                         });
                 });
-            } else {
-                console.error("Formulaire 'searchRadiusForm' non trouvé.");
             }
-    
-            // Formulaire de recherche par ID
-            document.getElementById('searchIdForm').addEventListener('submit', function(event) {
-                event.preventDefault();
-                const parkId = document.getElementById('parkId').value;
-                parkByIdLayer.clearLayers();
-                clearParkByIdTable();
-    
-                fetch(`/park/${parkId}`)
-                    .then(response => {
-                        if (!response.ok) throw new Error("Parc non trouvé");
-                        return response.json();
-                    })
-                    .then(park => {
-                        addPark(park, 'purple', parkByIdLayer);
-                    })
-                    .catch(error => {
-                        alert(error.message);
-                        console.error('Erreur lors de la recherche du parc par ID:', error);
-                    });
-            });
-    
-            // Fonction de mise à jour du tableau avec défilement
+
+            performSearch();
+
+            function clearTable() {
+                document.getElementById('parksList').innerHTML = '<tr><td colspan="2">Aucun parc sélectionné</td></tr>';
+            }
+
+            function clearParkByIdTable() {
+                document.getElementById('parkByIdList').innerHTML = '<tr><td colspan="2">Aucun parc sélectionné</td></tr>';
+            }
+
             function updateTable(park) {
                 let tbody = document.getElementById('parksList');
                 if (tbody.children.length === 1 && tbody.children[0].textContent.includes("Aucun parc sélectionné")) {
@@ -213,14 +194,9 @@
                 row.innerHTML = `<td>${park.NOM}</td><td>${park.superficie || 'Inconnue'}</td>`;
                 tbody.appendChild(row);
             }
-    
-            // Fonction pour vider la table de la recherche par rayon
-            function clearTable() {
-                document.getElementById('parksList').innerHTML = '<tr><td colspan="2">Aucun parc sélectionné</td></tr>';
-            }
-    
-            // Fonction pour mettre à jour la table de la recherche par ID
+
             function updateParkByIdTable(park) {
+                clearParkByIdTable();
                 let tbody = document.getElementById('parkByIdList');
                 if (tbody.children.length === 1 && tbody.children[0].textContent.includes("Aucun parc sélectionné")) {
                     tbody.innerHTML = '';
@@ -229,36 +205,7 @@
                 row.innerHTML = `<td>${park.NOM}</td><td>${park.superficie || 'Inconnue'}</td>`;
                 tbody.appendChild(row);
             }
-    
-            // Fonction pour vider la table de la recherche par ID
-            function clearParkByIdTable() {
-                document.getElementById('parkByIdList').innerHTML = '<tr><td colspan="2">Aucun parc sélectionné</td></tr>';
-            }
-    
-            // Fonction pour mettre à jour le menu déroulant des parcs supplémentaires
-            function updateDropdown(parks) {
-                let dropdown = document.getElementById("moreParksDropdown");
-                if (dropdown) {
-                    dropdown.innerHTML = '';
-                    parks.forEach(park => {
-                        let li = document.createElement('li');
-                        li.innerHTML = `<a href="#">${park.NOM}</a>`;
-                        li.addEventListener('click', function() {
-                            addPark(park, 'green', selectedParksLayer);
-                            dropdown.style.display = "none"; // Masquer le dropdown après sélection
-                        });
-                        dropdown.appendChild(li);
-                    });
-                    
-                    // Affiche le dropdown seulement si des parcs supplémentaires sont trouvés
-                    if (parks.length > 3) {
-                        dropdown.style.display = "block"; // Affiche le menu déroulant
-                    }
-                } else {
-                    console.error("L'élément 'moreParksDropdown' n'existe pas.");
-                }
-            }
         });
-    </script>    
+    </script>        
 </body>
 </html>
