@@ -129,23 +129,33 @@ def get_parks_near():
     for park in parks:
         park_geometry = park['geometry_3857']
 
-        # Vérifier si l'enveloppe du parc intersecte le buffer
-        if park_geometry.envelope.intersects(user_buffer):
-            # Calculer l'intersection du parc et du buffer
+        # Vérifier directement si le polygone du parc intersecte le buffer
+        if park_geometry.intersects(user_buffer):
+            # Calculer l'intersection
             intersection = park_geometry.intersection(user_buffer)
 
             if not intersection.is_empty:
                 # Calculer le pourcentage de recouvrement
-                if park_geometry.area > 0:
-                    overlap_percentage = intersection.area / park_geometry.area
+                park_area = park_geometry.area
+                if park_area > 0:
+                    overlap_percentage = intersection.area / park_area
                 else:
-                  overlap_percentage = 1.0
+                    overlap_percentage = 1.0  # Si le parc n'a pas d'aire définie, considérer comme inclus
 
-                # Si le pourcentage de recouvrement est supérieur à un seuil, considérer le parc comme inclus
-                if overlap_percentage > 0.5: # 0.5 = 50% de recouvrement
+                # Ajuster le seuil pour détecter plus de parcs (ex: > 0.1 pour 10% au lieu de 50%)
+                if overlap_percentage > 0.05:
                     parks_in_radius.append(park)
 
-    parks_list = [{'id': park['id'], 'NOM': park['NOM'], 'superficie': park['superficie'], 'geometry': park['geometry_3857'] if isinstance(park['geometry_3857'], dict) else park['geometry_3857'].__geo_interface__} for park in parks_in_radius]
+    parks_list = [
+        {
+            'id': park['id'],
+            'NOM': park['NOM'],
+            'superficie': park['superficie'],
+            'geometry': park['geometry_3857'] if isinstance(park['geometry_3857'], dict) else park['geometry_3857'].__geo_interface__
+        }
+        for park in parks_in_radius
+    ]
+
     return jsonify(parks_list)
 
 @app.route('/parks/stats', methods=['GET'])

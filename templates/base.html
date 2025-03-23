@@ -14,7 +14,6 @@
         <div class="container">
             <div class="table-container">
                 <form id="searchIdForm" class="search-form" role="form">
-                    <label for="parkId">Entrer le ID du parc</label>
                     <div class="search-input-container">
                         <input type="number" id="parkId" required min="0">
                     </div>
@@ -47,7 +46,7 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Nom</th>
+                                <th>ID - Nom</th>
                                 <th>Superficie (km²)</th>
                             </tr>
                         </thead>
@@ -112,7 +111,7 @@
                 }
 
                 if (feature) {
-                    feature.bindPopup(`<b>${park.NOM}</b><br>Superficie: ${park.superficie || 'Inconnue'} km²`);
+                    feature.bindPopup(`<b>${park.id} - ${park.NOM}</b><br>Superficie: ${park.superficie || 'Inconnue'} km²`);
                     layer.addLayer(feature);
                     map.invalidateSize();
 
@@ -124,10 +123,10 @@
                 }
             }
 
-            // Fonction pour mettre à jour la couleur d'un polygone
-            function updatePolygonColor(parkName, color) {
-                if (parkPolygons[parkName]) {
-                    parkPolygons[parkName].setStyle({
+            // Fonction pour mettre à jour la couleur d'un polygone en utilisant l'ID
+            function updatePolygonColor(parkId, color) {
+                if (parkPolygons[parkId]) {
+                    parkPolygons[parkId].setStyle({
                         color: color,
                         fillColor: color
                     });
@@ -165,8 +164,17 @@
                         return;
                     }
 
-                    // Effacer les sélections précédentes et le tableau de résultats
-                    selectedParksLayer.clearLayers();
+                    // Restaurer la couleur originale des polygones à bleu avant de colorer en vert
+                    Object.keys(parkPolygons).forEach(parkId => {
+                        const park = parkPolygons[parkId];
+                        if (selectedParksLayer.hasLayer(park)) {
+                            // Restaurer la couleur à bleu avant de colorer en vert
+                            updatePolygonColor(parkId, 'blue');
+                            selectedParksLayer.removeLayer(park);  // Retirer du groupe sélectionné si nécessaire
+                            allParksLayer.addLayer(park); // Ajouter de nouveau à allParksLayer si nécessaire
+                        }
+                    });
+
                     clearTable();
 
                     // Récupérer le rayon et les coordonnées du cercle de recherche
@@ -187,17 +195,6 @@
                                 alert("Aucun parc trouvé dans ce rayon.");
                                 return;
                             }
-
-                            // Réinitialiser les couleurs des polygones non sélectionnés à leur couleur originale
-                            Object.values(parkPolygons).forEach(polygon => {
-                                if (polygon.originalColor && polygon.originalColor !== 'green') {
-                                    // Utiliser directement le nom du parc stocké comme clé dans parkPolygons
-                                    let parkName = Object.keys(parkPolygons).find(key => parkPolygons[key] === polygon);
-                                    if (parkName) {
-                                        updatePolygonColor(parkName, polygon.originalColor);
-                                    }
-                                }
-                            });
 
                             // Traiter les parcs trouvés dans le rayon
                             parks.forEach(park => {
@@ -223,30 +220,39 @@
             }
 
             // Formulaire de recherche par ID
-            document.getElementById('searchIdForm').addEventListener('submit', function(event) {
+            document.getElementById('searchIdForm').addEventListener('submit', async function(event) {
                 event.preventDefault();
                 const parkId = document.getElementById('parkId').value;
-                parkByIdLayer.clearLayers();
+
+                // Restaurer la couleur originale des polygones à bleu avant de colorer en vert
+                Object.keys(parkPolygons).forEach(id => {
+                    const park = parkPolygons[id];
+                    if (parkByIdLayer.hasLayer(park)) {
+                        // Restaurer la couleur à bleu avant de colorer en vert
+                        updatePolygonColor(id, 'blue');
+                        parkByIdLayer.removeLayer(park);  // Retirer du groupe sélectionné si nécessaire
+                        allParksLayer.addLayer(park); // Ajouter de nouveau à allParksLayer si nécessaire
+                    }
+                });
+
                 clearParkByIdTable();
 
-                fetch(`/park/${parkId}`)
-                    .then(response => {
-                        if (!response.ok) throw new Error("Parc non trouvé");
-                        return response.json();
-                    })
-                    .then(park => {
-                        if (parkPolygons[park.NOM]) {
-                            parkByIdLayer.addLayer(parkPolygons[park.NOM]);
-                            updatePolygonColor(park.NOM, 'purple');
-                            updateParkByIdTable(park);
-                        } else {
-                            addPark(park, 'purple', parkByIdLayer);
-                        }
-                    })
-                    .catch(error => {
-                        alert(error.message);
-                        console.error('Erreur lors de la recherche du parc par ID:', error);
-                    });
+                try {
+                    const response = await fetch(`/park/${parkId}`);
+                    if (!response.ok) throw new Error("Parc non trouvé");
+
+                    const park = await response.json();
+                    if (parkPolygons[park.id]) {
+                        parkByIdLayer.addLayer(parkPolygons[park.id]);
+                        updatePolygonColor(park.id, 'purple');
+                        updateParkByIdTable(park);
+                    } else {
+                        addPark(park, 'purple', parkByIdLayer);
+                    }
+                } catch (error) {
+                    alert(error.message);
+                    console.error('Erreur lors de la recherche du parc par ID:', error);
+                }
             });
 
             // Fonction de mise à jour du tableau avec défilement
@@ -256,7 +262,7 @@
                     tbody.innerHTML = '';
                 }
                 let row = document.createElement('tr');
-                row.innerHTML = `<td>${park.NOM}</td><td>${park.superficie || 'Inconnue'}</td>`;
+                row.innerHTML = `<td>${park.id} - ${park.NOM}</td><td>${park.superficie || 'Inconnue'}</td>`;
                 tbody.appendChild(row);
             }
 
