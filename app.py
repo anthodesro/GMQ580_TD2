@@ -127,9 +127,23 @@ def get_parks_near():
 
     parks_in_radius = []
     for park in parks:
-        # Vérifier si le parc intersecte ou est contenu dans le buffer
-        if park['geometry_3857'].intersects(user_buffer) or park['geometry_3857'].within(user_buffer):
-            parks_in_radius.append(park)
+        park_geometry = park['geometry_3857']
+
+        # Vérifier si l'enveloppe du parc intersecte le buffer
+        if park_geometry.envelope.intersects(user_buffer):
+            # Calculer l'intersection du parc et du buffer
+            intersection = park_geometry.intersection(user_buffer)
+
+            if not intersection.is_empty:
+                # Calculer le pourcentage de recouvrement
+                if park_geometry.area > 0:
+                    overlap_percentage = intersection.area / park_geometry.area
+                else:
+                  overlap_percentage = 1.0
+
+                # Si le pourcentage de recouvrement est supérieur à un seuil, considérer le parc comme inclus
+                if overlap_percentage > 0.5: # 0.5 = 50% de recouvrement
+                    parks_in_radius.append(park)
 
     parks_list = [{'id': park['id'], 'NOM': park['NOM'], 'superficie': park['superficie'], 'geometry': park['geometry_3857'] if isinstance(park['geometry_3857'], dict) else park['geometry_3857'].__geo_interface__} for park in parks_in_radius]
     return jsonify(parks_list)

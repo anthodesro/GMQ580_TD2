@@ -30,6 +30,7 @@ main {
     height: calc(100vh - 100px);
     display: flex;
     flex-direction: column;
+    overflow-y: auto; /* Pour permettre le défilement du contenu */
 }
 
 /* Titre */
@@ -37,6 +38,8 @@ h1 {
     font-size: 2.5rem;
     margin-left: 20px;
     color: #333;
+    text-align: center;
+    margin-bottom: 20px; /* Ajout d'un espacement en bas du titre */
 }
 
 /* Carte */
@@ -44,6 +47,7 @@ h1 {
     width: 100%;
     height: 100%;
     border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Footer */
@@ -101,13 +105,14 @@ footer {
     border-radius: 8px;
     cursor: pointer;
     font-size: 1rem;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .search-form button:hover,
 .search-form button:focus {
     background-color: #0056b3;
     outline: none;
+    transform: translateY(-2px); /* Effet visuel de soulèvement au survol */
 }
 
 /* Responsivité */
@@ -151,15 +156,15 @@ footer {
 }
 
 table {
-    width: 100%;        /* Table prend toute la largeur */
-    border-collapse: collapse; /* Pour une présentation plus propre */
+    width: 100%;
+    border-collapse: collapse;
 }
 
 thead, th {
-    background-color: #f1f1f1; /* Couleur de fond de l'en-tête */
-    position: sticky; /* Rendre l'en-tête collant */
-    top: 0;            /* Il sera fixé en haut lors du défilement */
-    z-index: 1;        /* Assurez-vous que l'en-tête reste au-dessus du corps du tableau */
+    background-color: #f1f1f1;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 th, td {
@@ -211,11 +216,11 @@ tr:hover {
 
 /* Conteneur du tableau avec défilement */
 #scroll {
-    overflow-y: auto;  /* Active le défilement vertical si nécessaire */
-    height: 150px; /* Hauteur fixe du conteneur */
-    margin-top: 10px;  /* Espacement si nécessaire */
-    border: 1px solid #ddd; /* Ajouter une bordure si besoin */
-    border-radius: 8px; /* Arrondir les bords si nécessaire */
+    overflow-y: auto;
+    height: 150px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
 }
 
 /* Barre de défilement personnalisée */
