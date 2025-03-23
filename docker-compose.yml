@@ -1,0 +1,18 @@
+version: "3.8"
+services:
+  flask-app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_RUN_HOST=0.0.0.0
+    depends_on:
+      - geojson-data
+
+  geojson-data:
+    image: busybox
+    volumes:
+      - ./data:/data

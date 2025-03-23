@@ -1,6 +1,12 @@
-FROM python:3.12.7-slim
+FROM python:3.11-slim
 
-# Installer les dépendances système nécessaires
+# Set the working directory in the container
+WORKDIR /app
+
+# Upgrade pip, setuptools, and wheel
+RUN pip install --upgrade pip setuptools wheel
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgeos-dev \
@@ -8,17 +14,14 @@ RUN apt-get update && apt-get install -y \
     gdal-bin \
     && rm -rf /var/lib/apt/lists/*
 
-# Définir le répertoire de travail
-WORKDIR /app
-
-# Copier les fichiers de votre application dans l'image Docker
+# Copy the current directory contents into the container
 COPY . /app
 
-# Installer les dépendances Python spécifiées dans requirements.txt
+# Install the dependencies specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Exposer le port 5000 pour que l'application Flask soit accessible
+# Expose the port the app runs on
 EXPOSE 5000
 
-# Définir la commande pour démarrer l'application
+# Command to run the application
 CMD ["python", "app.py"]
