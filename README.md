@@ -6,7 +6,7 @@ Ce projet permet de visualiser et d'interagir avec les données géospatiales de
 
 ## Fonctionnalités
 
-* **API RESTful ** :
+* **API RESTful ️** :
     * Récupération de la liste de tous les parcs .
     * Récupération des détails d'un parc spécifique par son ID 🆔.
     * Recherche des parcs à proximité d'une localisation donnée (latitude ⬆️, longitude ➡️) dans un rayon spécifié .
