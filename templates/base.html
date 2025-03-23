@@ -220,39 +220,41 @@
             }
 
             // Formulaire de recherche par ID
-            document.getElementById('searchIdForm').addEventListener('submit', async function(event) {
+            document.getElementById('searchIdForm').addEventListener('submit', function(event) {
                 event.preventDefault();
                 const parkId = document.getElementById('parkId').value;
-
-                // Restaurer la couleur originale des polygones à bleu avant de colorer en vert
-                Object.keys(parkPolygons).forEach(id => {
-                    const park = parkPolygons[id];
-                    if (parkByIdLayer.hasLayer(park)) {
-                        // Restaurer la couleur à bleu avant de colorer en vert
-                        updatePolygonColor(id, 'blue');
-                        parkByIdLayer.removeLayer(park);  // Retirer du groupe sélectionné si nécessaire
-                        allParksLayer.addLayer(park); // Ajouter de nouveau à allParksLayer si nécessaire
-                    }
-                });
+                
+                // Restaurer la couleur originale des polygones à bleu avant de colorer en mauve
+                Object.keys(parkPolygons).forEach(parkId => {
+                        const park = parkPolygons[parkId];
+                        if (parkByIdLayer.hasLayer(park)) {
+                            // Restaurer la couleur à bleu avant de colorer en mauve
+                            updatePolygonColor(parkId, 'blue');
+                            parkByIdLayer.removeLayer(park);  // Retirer du groupe sélectionné si nécessaire
+                            allParksLayer.addLayer(park); // Ajouter de nouveau à allParksLayer si nécessaire
+                        }
+                    });
 
                 clearParkByIdTable();
 
-                try {
-                    const response = await fetch(`/park/${parkId}`);
-                    if (!response.ok) throw new Error("Parc non trouvé");
-
-                    const park = await response.json();
-                    if (parkPolygons[park.id]) {
-                        parkByIdLayer.addLayer(parkPolygons[park.id]);
-                        updatePolygonColor(park.id, 'purple');
-                        updateParkByIdTable(park);
-                    } else {
-                        addPark(park, 'purple', parkByIdLayer);
-                    }
-                } catch (error) {
-                    alert(error.message);
-                    console.error('Erreur lors de la recherche du parc par ID:', error);
-                }
+                fetch(`/park/${parkId}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error("Parc non trouvé");
+                        return response.json();
+                    })
+                    .then(park => {
+                        if (parkPolygons[park.NOM]) {
+                            parkByIdLayer.addLayer(parkPolygons[park.NOM]);
+                            updatePolygonColor(park.NOM, 'purple');
+                            updateParkByIdTable(park);
+                        } else {
+                            addPark(park, 'purple', parkByIdLayer);
+                        }
+                    })
+                    .catch(error => {
+                        alert(error.message);
+                        console.error('Erreur lors de la recherche du parc par ID:', error);
+                    });
             });
 
             // Fonction de mise à jour du tableau avec défilement

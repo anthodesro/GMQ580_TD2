@@ -183,5 +183,5 @@ def get_parks_stats():
 
     return jsonify({'superficie_totale': round(total_area, 2)})
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
